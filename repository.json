@@ -23,9 +23,9 @@
     },
     {
       "slug": "probe-manifest-name-only",
-      "name": "[PROBE] Manifest: Name only",
+      "name": "[PROBE] Manifest: Metadata, no assets",
       "type": "manifest",
-      "description": "Manifest has only a `name` field, no version, no assets. Tests the boundary between \"empty\" and \"any metadata whatsoever\".",
+      "description": "Manifest has full metadata (name/version/author/description) but no assets array. Tests whether the modkit requires an assets field and — via the error message — what the next missing-field boundary is after version.",
       "version": "0.0.1",
       "assets": ["probe-manifest-name-only.zip"]
     },
