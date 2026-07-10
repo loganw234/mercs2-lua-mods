@@ -1,0 +1,7 @@
+{
+  "name": "Probe: Minimal manifest with path-only asset",
+  "version": "0.0.1",
+  "assets": [
+    { "path": "probe_marker_minimal.lua" }
+  ]
+}

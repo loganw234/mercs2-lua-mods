@@ -9,17 +9,41 @@
       "slug": "probe-asi",
       "name": "[PROBE] Test ASI Placement",
       "type": "asi",
-      "description": "Throwaway placeholder used to confirm where the modkit deploys type=\"asi\" assets. Loads cleanly (valid DLL, DllMain returns TRUE, no side effects) — safe to install then delete after noting the file path.",
+      "description": "Control probe. Throwaway ASI to confirm where the modkit deploys type=\"asi\" assets. Loads cleanly (valid DLL, DllMain returns TRUE, no side effects) — safe to install then delete.",
       "version": "0.0.1",
       "assets": ["probe_marker.asi"]
     },
     {
-      "slug": "probe-lua",
-      "name": "[PROBE] Test Lua Placement",
-      "type": "lua",
-      "description": "Throwaway placeholder used to confirm where the modkit deploys type=\"lua\" assets. Not bound to any hotkey and not auto-executed by any bridge lifecycle hook — safe to install then delete after noting the file path.",
+      "slug": "probe-manifest-empty",
+      "name": "[PROBE] Manifest: Empty",
+      "type": "manifest",
+      "description": "Absolute minimum. Manifest is literally `{}`. Tests whether the modkit tolerates a manifest with zero fields — informative even (or especially) if it doesn't.",
       "version": "0.0.1",
-      "assets": ["probe_marker.lua"]
+      "assets": ["probe-manifest-empty.zip"]
+    },
+    {
+      "slug": "probe-manifest-name-only",
+      "name": "[PROBE] Manifest: Name only",
+      "type": "manifest",
+      "description": "Manifest has only a `name` field, no version, no assets. Tests the boundary between \"empty\" and \"any metadata whatsoever\".",
+      "version": "0.0.1",
+      "assets": ["probe-manifest-name-only.zip"]
+    },
+    {
+      "slug": "probe-manifest-minimal",
+      "name": "[PROBE] Manifest: Path-only asset",
+      "type": "manifest",
+      "description": "Manifest declares one asset with just a `path` — no `name`, `type`, or `target_patch`. Tests the hypothesis that the modkit may have grown loose-file support since the documented sample.",
+      "version": "0.0.1",
+      "assets": ["probe-manifest-minimal.zip"]
+    },
+    {
+      "slug": "probe-manifest-sample",
+      "name": "[PROBE] Manifest: Full sample fidelity",
+      "type": "manifest",
+      "description": "Full-fidelity replica of the modkit's documented sample manifest format (with `name`, `type: \"script\"`, `target_patch: \"scripts\"`) pointed at a single Lua file. Reveals where the sample format actually lands assets.",
+      "version": "0.0.1",
+      "assets": ["probe-manifest-sample.zip"]
     }
   ]
 }
