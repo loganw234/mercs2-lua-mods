@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "name": "Mercenaries 2 Lua Mods",
+  "maintainer": "loganw234",
+  "url": "https://github.com/loganw234/mercs2-lua-mods",
+  "description": "Lua-based mods for Mercenaries 2. Currently in probe phase — verifying modkit deployment behavior before publishing real mods.",
+  "mods": [
+    {
+      "slug": "probe-asi",
+      "name": "[PROBE] Test ASI Placement",
+      "type": "asi",
+      "description": "Throwaway placeholder used to confirm where the modkit deploys type=\"asi\" assets. Loads cleanly (valid DLL, DllMain returns TRUE, no side effects) — safe to install then delete after noting the file path.",
+      "version": "0.0.1",
+      "assets": ["probe_marker.asi"]
+    },
+    {
+      "slug": "probe-lua",
+      "name": "[PROBE] Test Lua Placement",
+      "type": "lua",
+      "description": "Throwaway placeholder used to confirm where the modkit deploys type=\"lua\" assets. Not bound to any hotkey and not auto-executed by any bridge lifecycle hook — safe to install then delete after noting the file path.",
+      "version": "0.0.1",
+      "assets": ["probe_marker.lua"]
+    }
+  ]
+}

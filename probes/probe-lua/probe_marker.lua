@@ -1,0 +1,7 @@
+-- probe_marker.lua — throwaway file used to confirm where the modkit
+-- deploys type="lua" assets. Not bound to any hotkey, not executed
+-- automatically by any bridge lifecycle hook — just a placeholder that
+-- lands somewhere on disk when installed. Safe to delete after checking
+-- the file location.
+--
+-- If you're reading this in production, someone forgot to clean up.
