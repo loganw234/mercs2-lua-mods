@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. v0.1.0)'
+        description: 'Release tag (e.g. v1.0.0)'
         required: true
 
 permissions:
@@ -21,21 +21,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install zip
-        run: sudo apt-get update && sudo apt-get install -y zip
+      - name: Install 32-bit MinGW cross-compiler + zip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-i686 zip
 
-      - name: Package mods
+      - name: Build ASI mods
+        run: make
+
+      - name: Stage release artifacts
         run: |
           mkdir -p dist
 
-          # Each mod under mods/<slug>/ gets zipped as <slug>.zip with
-          # manifest.json at the archive root and assets/ alongside. The
-          # zip filename must match the `assets` entry for this mod in
-          # repository.json so the modkit downloads it by name.
+          # ASI mods: upload the .asi + its companion .ini / .py / .lua files
+          # as loose release assets so the modkit can download each by name
+          # (repository.json's `assets` array is the source of truth for
+          # which filenames to expect).
+          if [ -f mods/lua-bridge/lua_bridge.asi ]; then
+            cp mods/lua-bridge/lua_bridge.asi   dist/
+            cp mods/lua-bridge/lua_bridge.ini   dist/
+            cp mods/lua-bridge/lua_loader.ini   dist/
+            cp mods/lua-bridge/lua_console.py   dist/
+          fi
+
+          # Manifest-based mods: zip each mods/<slug>/ folder with manifest.json
+          # at the archive root plus its assets/ subdirectory. Zip name must
+          # match the mod's `assets` entry in repository.json.
           for mod_dir in mods/*/; do
             slug=$(basename "$mod_dir")
-            echo "Packaging $slug..."
-            (cd "$mod_dir" && zip -r "../../dist/${slug}.zip" manifest.json assets/)
+            if [ -f "$mod_dir/manifest.json" ]; then
+              echo "Packaging manifest mod: $slug"
+              (cd "$mod_dir" && zip -r "../../dist/${slug}.zip" manifest.json assets/)
+            fi
           done
 
           echo "--- dist contents ---"
@@ -47,4 +64,8 @@ jobs:
           tag_name: ${{ github.ref_name || inputs.tag }}
           name: ${{ github.ref_name || inputs.tag }}
           generate_release_notes: true
-          files: dist/*.zip
+          files: |
+            dist/*.asi
+            dist/*.ini
+            dist/*.py
+            dist/*.zip

@@ -3,8 +3,16 @@
   "name": "Mercenaries 2 Lua Mods",
   "maintainer": "loganw234",
   "url": "https://github.com/loganw234/mercs2-lua-mods",
-  "description": "Lua-driven mods for Mercenaries 2. Menu widgets, script tools, and other content designed to be composed by scripts running on the Lua Bridge runtime.",
+  "description": "Lua-driven mods for Mercenaries 2. The Lua Bridge runtime plus menu widgets, script tools, and other content designed to be composed by scripts running on top of it.",
   "mods": [
+    {
+      "slug": "lua-bridge",
+      "name": "Lua Bridge",
+      "type": "asi",
+      "description": "Live Lua REPL, script loader (OnBoot / OnLoad / OnKey), full keyboard/focus API, math stdlib parity, persistent SaveVar/LoadVar, and a self-healing watchdog. The runtime layer every [LUA]-prefixed mod in this catalog depends on. Ships as one .asi plus companion config + Python REPL client; drop them into <game>/scripts/.",
+      "version": "1.0.0",
+      "assets": ["lua_bridge.asi", "lua_bridge.ini", "lua_loader.ini", "lua_console.py"]
+    },
     {
       "slug": "lua-menu-widgets",
       "name": "[LUA] Menu Widgets",
