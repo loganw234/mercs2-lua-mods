@@ -1,0 +1,50 @@
+name: Release mods
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install zip
+        run: sudo apt-get update && sudo apt-get install -y zip
+
+      - name: Package mods
+        run: |
+          mkdir -p dist
+
+          # Each mod under mods/<slug>/ gets zipped as <slug>.zip with
+          # manifest.json at the archive root and assets/ alongside. The
+          # zip filename must match the `assets` entry for this mod in
+          # repository.json so the modkit downloads it by name.
+          for mod_dir in mods/*/; do
+            slug=$(basename "$mod_dir")
+            echo "Packaging $slug..."
+            (cd "$mod_dir" && zip -r "../../dist/${slug}.zip" manifest.json assets/)
+          done
+
+          echo "--- dist contents ---"
+          ls -la dist/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          name: ${{ github.ref_name || inputs.tag }}
+          generate_release_notes: true
+          files: dist/*.zip

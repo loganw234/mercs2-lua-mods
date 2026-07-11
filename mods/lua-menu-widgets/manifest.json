@@ -1,0 +1,14 @@
+{
+  "name": "Lua Menu Widgets",
+  "version": "0.1.0",
+  "author": "loganw234",
+  "description": "Five reusable menu movie assets (forge, cbar, cpanel, contracts, chat) that Lua scripts call into via SetSwfFile(). Adds new WAD entries under bare-name keys — does not override any base-game asset. Useful only in combination with a script that drives them; requires the Lua Bridge runtime.",
+  "requirements": { "game_version": "1.1" },
+  "assets": [
+    { "path": "assets/forge.gfx",     "name": "forge",     "type": "cfx_pack", "target_patch": "auto" },
+    { "path": "assets/cbar.gfx",      "name": "cbar",      "type": "cfx_pack", "target_patch": "auto" },
+    { "path": "assets/cpanel.gfx",    "name": "cpanel",    "type": "cfx_pack", "target_patch": "auto" },
+    { "path": "assets/contracts.gfx", "name": "contracts", "type": "cfx_pack", "target_patch": "auto" },
+    { "path": "assets/chat.gfx",      "name": "chat",      "type": "cfx_pack", "target_patch": "auto" }
+  ]
+}

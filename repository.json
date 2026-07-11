@@ -3,47 +3,15 @@
   "name": "Mercenaries 2 Lua Mods",
   "maintainer": "loganw234",
   "url": "https://github.com/loganw234/mercs2-lua-mods",
-  "description": "Lua-based mods for Mercenaries 2. Currently in probe phase — verifying modkit deployment behavior before publishing real mods.",
+  "description": "Lua-driven mods for Mercenaries 2. Menu widgets, script tools, and other content designed to be composed by scripts running on the Lua Bridge runtime.",
   "mods": [
     {
-      "slug": "probe-asi",
-      "name": "[PROBE] Test ASI Placement",
-      "type": "asi",
-      "description": "Control probe. Throwaway ASI to confirm where the modkit deploys type=\"asi\" assets. Loads cleanly (valid DLL, DllMain returns TRUE, no side effects) — safe to install then delete.",
-      "version": "0.0.1",
-      "assets": ["probe_marker.asi"]
-    },
-    {
-      "slug": "probe-manifest-empty",
-      "name": "[PROBE] Manifest: Empty",
+      "slug": "lua-menu-widgets",
+      "name": "[LUA] Menu Widgets",
       "type": "manifest",
-      "description": "Absolute minimum. Manifest is literally `{}`. Tests whether the modkit tolerates a manifest with zero fields — informative even (or especially) if it doesn't.",
-      "version": "0.0.1",
-      "assets": ["probe-manifest-empty.zip"]
-    },
-    {
-      "slug": "probe-manifest-name-only",
-      "name": "[PROBE] Manifest: Metadata, no assets",
-      "type": "manifest",
-      "description": "Manifest has full metadata (name/version/author/description) but no assets array. Tests whether the modkit requires an assets field and — via the error message — what the next missing-field boundary is after version.",
-      "version": "0.0.1",
-      "assets": ["probe-manifest-name-only.zip"]
-    },
-    {
-      "slug": "probe-manifest-minimal",
-      "name": "[PROBE] Manifest: Path-only asset",
-      "type": "manifest",
-      "description": "Manifest declares one asset with just a `path` — no `name`, `type`, or `target_patch`. Tests the hypothesis that the modkit may have grown loose-file support since the documented sample.",
-      "version": "0.0.1",
-      "assets": ["probe-manifest-minimal.zip"]
-    },
-    {
-      "slug": "probe-manifest-sample",
-      "name": "[PROBE] Manifest: Full sample fidelity",
-      "type": "manifest",
-      "description": "Full-fidelity replica of the modkit's documented sample manifest format (with `name`, `type: \"script\"`, `target_patch: \"scripts\"`) pointed at a single Lua file. Reveals where the sample format actually lands assets.",
-      "version": "0.0.1",
-      "assets": ["probe-manifest-sample.zip"]
+      "description": "Five reusable menu movie assets (forge, cbar, cpanel, contracts, chat) that Lua scripts call via SetSwfFile(). Adds new WAD entries under bare-name keys; overrides nothing. Requires the Lua Bridge runtime and a script that drives the menus.",
+      "version": "0.1.0",
+      "assets": ["lua-menu-widgets.zip"]
     }
   ]
 }

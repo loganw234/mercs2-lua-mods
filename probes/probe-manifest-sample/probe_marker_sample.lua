@@ -1,5 +1,0 @@
--- probe_marker_sample.lua — deployment target unknown. Manifest declared
--- this file with the full sample format: name="scripts/onkey/probe_marker_sample",
--- type="script", target_patch="scripts". If the modkit accepts this shape,
--- note where the file landed on disk (game filesystem AND, if applicable,
--- inside any resulting vz-patch.wad).

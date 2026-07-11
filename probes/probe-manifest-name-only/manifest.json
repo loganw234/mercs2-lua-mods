@@ -1,6 +1,0 @@
-{
-  "name": "Probe: Full metadata, no assets",
-  "version": "0.0.1",
-  "author": "loganw234",
-  "description": "Populated metadata but no assets array. Tests whether the modkit requires an assets field, and if so, what error it reports."
-}

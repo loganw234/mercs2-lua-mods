@@ -1,19 +1,19 @@
 # Mercenaries 2 Lua Mods
 
-Lua-based mods for **Mercenaries 2: World in Flames** (PC). Each mod is a small Lua script that runs against the [Lua Bridge](https://github.com/loganw234/Merc2-Mods-Exp) runtime (`lua_bridge.asi`).
+Lua-driven mods for **Mercenaries 2: World in Flames** (PC). Menu widgets, script tools, and other content designed to be composed by scripts running on the [Lua Bridge](https://github.com/loganw234/Merc2-Mods-Exp) runtime.
 
 > [!IMPORTANT]
-> **All mods in this catalog require the Lua Bridge mod to be installed and enabled first.** The `[LUA]` prefix on a mod's name in the modkit catalog signals this dependency. Without the runtime, the scripts have nowhere to run.
+> **Mods in this catalog require the Lua Bridge to be installed and enabled first** to be useful. The `[LUA]` prefix on every mod's catalog name signals this dependency. The assets themselves install without it (they're plain WAD-patch content), but nothing will drive them until a Lua script does.
 
-## Status: Probe phase
+## Current mods
 
-This repo is currently a **probe** — it exists to verify how the modkit's mod catalog handles different asset types before we start publishing real Lua-based mods here. The `[PROBE]` mods in the catalog are throwaway placeholders used to confirm modkit deployment behavior; they're safe to install then delete once the file path is confirmed.
-
-Once the deployment path is understood, this catalog will grow to host individual Lua mods (menus, cheat tools, gameplay tweaks, etc.), each prefixed `[LUA]` to signal the runtime dependency.
+| Mod | What it is |
+|---|---|
+| **[LUA] Menu Widgets** | Five reusable menu movie assets (`forge`, `cbar`, `cpanel`, `contracts`, `chat`) that Lua scripts drive via `SetSwfFile()`. Additive — does not override any base-game content. |
 
 ## Documentation
 
-Full script-writing docs, samples, and the API reference for the Lua Bridge runtime live on the wiki: **[wiki.mercs2.tools](https://wiki.mercs2.tools)**.
+Full script-writing docs, samples for driving these menus, and the Lua Bridge API reference live on the wiki: **[wiki.mercs2.tools](https://wiki.mercs2.tools)**.
 
 ## License
 

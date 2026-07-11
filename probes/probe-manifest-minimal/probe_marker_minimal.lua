@@ -1,4 +1,0 @@
--- probe_marker_minimal.lua — deployment target unknown. Manifest declared
--- this file with just { "path": "probe_marker_minimal.lua" } — no name,
--- no type, no target_patch. If the modkit accepts this shape, note where
--- the file landed on disk.
