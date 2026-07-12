@@ -8,5 +8,8 @@
 # Runtime logs
 *.log
 
+# Packaged framework bundle (redundant with the tracked scripts/OnLoad/ deps)
+FrameworkPack.zip
+
 # OS cruft
 .DS_Store
