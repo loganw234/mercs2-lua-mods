@@ -18,11 +18,19 @@ Deploy: `git pull` -> copy the `.lua` files into the game `scripts/OnLoad` + `sc
   modifier levers** (incl. `mEarly`/`mShell`/`mTarget` -- so veh/heli/boss/economy all got exercised via
   all-threats-@-wave-1), **unit cap + staggered spawns**, **death/medevac economy teardown**, **faction setup +
   restore**.
-- **Staged, re-test STILL pending (only 2 left):** (1) **geometry-safe spawns** -- improved (jitter within the
-  authored point radius + per-point stagger) and mostly good, but **NOT 100%** yet (some units still land in
-  geometry); next: tighten jitter / validate the arena points / ground-snap or nudge-to-center on spawn. (2)
-  **report-hook reinforcements** (armed vehicle / gunship / air-support via the `MrxFactionManager.FinishedReporting`
-  hook) -- couldn't trigger the report beat in-test yet (needs a unit to actually report the player).
+- **Staged, re-test pending:** (1) **geometry-safe spawns** -- ADDRESSED (jitter tightened to **0.75m** = spawn on
+  the known-safe point center; summoner boss adds now use a nearby authored point via `nearBossPoint`, not a ring
+  around the boss that clipped walls near cover); re-test pending. (2) **report-hook reinforcements** (armed
+  vehicle / gunship / air-support via the `MrxFactionManager.FinishedReporting` hook) -- couldn't trigger the
+  report beat in-test yet (needs a unit to actually report the player).
+- **New (2026-07-12, staged; HOST-ONLY / non-breaking, committed local `b827545`+`661ebc9`, unpushed):**
+  **wave-archetype system** -- each non-boss wave rolls a weighted flavor (gated by wave# + active factions) that
+  reshapes the spawn and announces it on the banner: **Blitz** (fast/few), **Horde** (swarm), **Armored Column**
+  (vehicle push), **Siege** (continuous shelling), **Airborne Assault** (Allied/China only: artillery barrage via
+  the existing `wd_strike`, then native paratroopers chute in). Scaffold for more (faction-signatures + gimmicks).
+  **Prefix-rolled bosses** -- `rollBoss()` = a PREFIX (General=summoner + Colonel/Warlord/Commander/Butcher/Marshal,
+  each an hp/haste/summon bundle) x BODY (template) x codename, so bosses vary per run. **Verify in-engine:** that
+  paratroopers actually chute (vs. splat) from `Pg.Spawn('Allied Paratrooper', y+45)` -- fallback `AIRBORNE_ALT=0`.
 - **DEAD ENDS (do NOT retry):** support auto-equip via `Pda/PdaInterface` (unreachable) -- SOLVED via
   `Hud.SupportMenu:AddItem`. Native heli/jet DELIVERIES (`MrxCopterDrop`, `Airstrike.Flyby` as a *unit* carrier)
   -- they resolve cargo via `Pg.GetGuidByName`, which can't see our roster templates in a custom contract; only
