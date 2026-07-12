@@ -108,6 +108,7 @@ W.MODIFIERS = {
     { key = "mHp",   label = "Enemy Health",     kind = "mult", vals = { 0.5, 1, 1.5, 2, 3 },   rew = { 0.7, 1, 1.3, 1.6, 2.2 } },
     { key = "mSpd",  label = "Enemy Speed",      kind = "mult", vals = { 0.6, 1, 1.3, 1.6, 2 }, rew = { 0.8, 1, 1.2, 1.4, 1.7 } },
     { key = "mAir",  label = "Enemy Airstrikes", kind = "opt",  vals = { "off", "normal", "heavy" }, rew = { 0.85, 1, 1.35 } },
+    { key = "mArch", label = "Special Waves",    kind = "opt",  vals = { "rare", "normal", "frequent", "chaos" }, rew = { 0.9, 1, 1.2, 1.4 } },   -- how often a wave is a special archetype (chaos = every eligible non-boss wave)
     { key = "mBoss", label = "Boss Rush (every 3)",    kind = "toggle", rew = 1.4 },
     { key = "mStore",label = "No Store",               kind = "toggle", rew = 1.6 },
     { key = "mGlass",label = "Glass Cannon (half HP)", kind = "toggle", rew = 1.7 },
@@ -1023,15 +1024,22 @@ local WAVE_ARCHETYPES = {
                             run.vehToSpawn, run.heliToSpawn = 0, 0
                             run.toSpawn = math.max(8, math.floor(run.toSpawn * 0.9)); run.preBarrage = true end },   -- barrage + paratrooper drop (Allied/China)
 }
+-- the "Special Waves" modifier scales the NORMAL (plain-wave) weight: rare -> more normals, chaos -> 0 normals
+-- (every eligible non-boss wave becomes a special archetype). Special weights are untouched.
+local ARCH_NORMAL_MUL = { rare = 3, normal = 1, frequent = 0.25, chaos = 0 }
 local function pickArchetype(run)              -- weighted roll among the eligible archetypes for this wave
+    local nmul = ARCH_NORMAL_MUL[(run.mods and run.mods.mArch) or "normal"] or 1
     local elig, tot = {}, 0
     for _, a in ipairs(WAVE_ARCHETYPES) do
-        if run.wave >= (a.minWave or 0) and (not a.req or a.req(run)) then elig[#elig + 1] = a; tot = tot + a.weight end
+        if run.wave >= (a.minWave or 0) and (not a.req or a.req(run)) then
+            local w = (a.id == "normal") and (a.weight * nmul) or a.weight
+            if w > 0 then elig[#elig + 1] = { a = a, w = w }; tot = tot + w end   -- 0-weight normal (chaos) drops out
+        end
     end
-    if tot <= 0 then return nil end
+    if tot <= 0 then return nil end            -- nothing eligible (e.g. chaos before any special unlocks) -> plain wave
     local r = rnd() * tot
-    for _, a in ipairs(elig) do r = r - a.weight; if r <= 0 then return a end end
-    return elig[#elig]
+    for _, e in ipairs(elig) do r = r - e.w; if r <= 0 then return e.a end end
+    return elig[#elig].a
 end
 local VEH_START, HELI_START = 3, 5   -- waves at which enemy vehicles / helis start appearing
 local function spawnWave(run)
