@@ -4,23 +4,33 @@ A featured-quality, replayable co-op wave-defense mode for Mercenaries 2, leanin
 game's native systems (economy, support call-ins, factions, vehicles, fanfare) with a
 two-currency progression loop.
 
-## Status (2026-07-11, end of session)
+## Status (2026-07-12)
 
-Nearly all systems M0-M9 are BUILT in one file (`WaveDefense.lua`, ~62KB, staged to the game).
+One file `WaveDefense.lua` (~100KB), all systems M0-M9 built. On GitHub **`loganw234/mercs2-lua-mods`** `main`,
+under `mods/lua-wave-defense/` (deps `1_ModNet`/`1_uilib`/`1_ContractFramework` + `contracts.lua` bundled).
+Deploy: `git pull` -> copy the `.lua` files into the game `scripts/OnLoad` + `scripts/OnKey`.
 
-- **Confirmed in-engine:** co-op connect (ModNet v1.2), base loop, drops, minimap blips, AI aggression,
-  mixed-faction waves, airstrike->bombingrun.
-- **Staged, NOT yet tested:** vehicle/heli waves, enemy airstrikes on the arena, the modifiers system,
-  isolated run economy, regen-based tanky enemies/bosses, glass-cannon damage-amp, placement mode,
-  the win/fail results card, and the 2026-07-11 CONTENT SWEEP (physical supply-crate drops, expanded
-  store catalog, killstreak reward, boss HP bar, wave-incoming banner, physical-prop cover, +2 bosses,
-  roster additions).
-- **Shelved wall:** support auto-equip to quick-slots (Pda/PdaInterface unreachable from OnLoad). New
-  untried lead: `MrxSupportManager.CurrentlyEquippedSupport:AddSupport(oSupport)`.
-- **Engine facts learned:** no `Object.SetMaxHealth` (tanky = regen); `math.random` dead (Park-Miller rnd);
-  airstrike key = `bombingrun`; faction abbrevs Vza/Gur/Chi/All/Oil/Pir; **`Cover (X)` templates are AI
-  cover-hint markers, not physical props -- use `_global_sandbags…/barricade…/concretebarrier…/explosivebarrel`.**
-- **Remaining (M9 polish):** local leaderboard, board art, wiki page; balance tuning; equip wall.
+- **Confirmed in-engine:** co-op connect (ModNet v1.2), base loop, drops + physical supply crates, mixed-faction
+  waves, AI aggression, the contract on the F5 board (after the loadMods fix), killstreak, **support auto-equip**
+  to the quick-menu, **RNG fixed** (ZX generator -- crates/units vary now, not all one type).
+- **Staged, re-test pending:** vehicle/heli waves, modifiers, isolated economy, regen bosses, glass-cannon,
+  placement mode, results card, boss HP bar, wave banner, support isolation, **unit cap** (staggered spawns),
+  **geometry-safe spawns**, **real airstrikes** (falling `Artillery Shell` + small-plane flyby + Sustained
+  Shelling / Target Acquisition modifiers + `mEarly` "all threats @ wave 1" test lever), **report-hook
+  reinforcements** (armed vehicle / gunship / air-support), and the **co-op fixes** (airstrike shell+plane on
+  BOTH machines, client-side enemy blips).
+- **DEAD ENDS (do NOT retry):** support auto-equip via `Pda/PdaInterface` (unreachable) -- SOLVED via
+  `Hud.SupportMenu:AddItem`. Native heli/jet DELIVERIES (`MrxCopterDrop`, `Airstrike.Flyby` as a *unit* carrier)
+  -- they resolve cargo via `Pg.GetGuidByName`, which can't see our roster templates in a custom contract; only
+  direct `Pg.Spawn` works for our units.
+- **Key engine facts (full list in [[wave-defense-project]]):** engine Lua is **32-bit float** (ints exact only
+  to 2^24 -- the big Park-Miller LCG collapsed -> ZX small-LCG); no `Object.SetMaxHealth` (tanky=regen);
+  `Pg.Spawn`/`Airstrike.*` spawn **LOCALLY, not networked** (co-op = run the visual on each machine, e.g. via a
+  `wd_*` handler); a **guid-anchored radar blip doesn't cross to the co-op client** -- guids are machine-local +
+  netsync gated on `Net.IsServer()` (false here), so blip per-machine; `Cover (X)` = AI markers, use `_global_`
+  props; AI unit cap **~200 ok / 600 CTDs** -> `MAX_ACTIVE`=140 + staggered spawns.
+- **Remaining (M9 polish):** client-blip vehicles/helis (humans only so far); local leaderboard; board art;
+  wiki page; VO/music cues; balance tuning; prune any crate templates that FAIL to spawn (check the log).
 
 ## Design pillars (locked)
 
@@ -130,7 +140,16 @@ Each entry: `{ id, name, desc, xpCost, cashCost, category, unlock(), effect(ctx)
 - [~] Tuning: added full-heal + carpet-bomb beacons + crates + rate 12->15%; wave-scaled rate still TODO
 
 ### M7 - Enemy & wave variety
-- [x] Findability: per-enemy minimap blips + `Ai.SetHaste(1.6)` + ideal-distance spawns + re-aggro
+- [x] Findability: per-enemy minimap blips (host `addEnemyBlip` + **client-side `clientBlipSweep`** so co-op
+      partners see them too) + `Ai.SetHaste(1.6)` + ideal-distance spawns. Per-tick re-aggro REMOVED (it reset
+      pathing and froze the AI at spawn); geometry-safe spawns (WITHIN the authored point radius, staggered by
+      `POINT_COOLDOWN`, no outward spiral into walls); `MAX_ACTIVE`=140 cap w/ staggered spawns (CTD guard).
+- [~] Enemy airstrikes: player-tracking real strikes -- `Airstrike.SpawnOrdnance("Artillery Shell",...)` falling
+      bomb + `Airstrike.Flyby("Support Vehicle (OV10/Tucano)")` plane + escalating flash; run on BOTH machines
+      (via `wd_strike`) so co-op sees them; **Sustained Shelling** + **Target Acquisition** modifiers -- staged
+- [~] Reinforcements: hook the native REPORT UI (`MrxFactionManager.FinishedReporting`, kill-the-caller stops it)
+      -> our `reinforceDrop` = armed vehicle / gunship / 20% air-support (all `Pg.Spawn`; native deliveries were a
+      dead end); `IncrementPursuit` no-op'd during a run to suppress the engine's own reinforcement -- staged
 - [x] Weighted per-faction ROSTERS (from the MissionForge catalog); `buildPool`/`pickUnit`
 - [x] Elite/special units in the mix (weighted: soldiers common, heavies/snipers/elites rarer)
 - [x] **Mixed-faction** waves (config `factions`=1-6): all hostile to Pmc + friendly to each other (`setupRelations`)
@@ -171,9 +190,22 @@ Each entry: `{ id, name, desc, xpCost, cashCost, category, unlock(), effect(ctx)
 
 ## Key native APIs (confirmed)
 - Cash: `MrxPmc.GetCashQty()`, `MrxPmc.AddCashQty(±n)` (HUD-updating)
-- Support: `MrxPmc.AddSupportQty(sId, n)`, `GetSupportQty(sId)`; catalog `MrxSupportData.tSupportData`
-- Native store UI (if used): `MrxGuiSupportShop.Create/AddItemFull/SetCallback/Commence`
-- Spawn: `Pg.Spawn(template,x,y,z)` (blank template hard-CTDs - validate first)
-- AI: `Ai.Goal{ Goal="Attack", Target=... }`; blips: `enemyblippable`
+- Support: `MrxPmc.AddSupportQty(sId, n)`; catalog `MrxSupportData.tSupportData[key].{oSupport,sName,sIcon}`.
+  Quick-menu EQUIP: `Hud.SupportMenu:AddItem{sName,sIcon,oSupport}` / `:RemoveItem{sName}` (the real freebie/PDA API).
+- Spawn: `Pg.Spawn(template,x,y,z)` (blank template hard-CTDs; **spawns LOCALLY -- not networked to co-op**).
+  `Pg.GetGuidByName` only finds MISSION-EXPORTED templates (fails for arbitrary roster templates -> kills native
+  deliveries like `MrxCopterDrop`).
+- Airstrikes: `Airstrike.Flyby(nameStr, sx,sz, tx,tz, tyAlt, speed[, cb,cbData])` (a plane; nameStr = global
+  "Support Vehicle (B2/AC130/F117/OV10/Tucano/Cessna)"); `Airstrike.SpawnOrdnance(round, x,y,z, vx,vy,vz, fuze,
+  scalar)` (a falling shell exploding on impact; POSITION-based rounds = Artillery Shell / Gunship Shell / Rocket
+  Artillery Projectile / Cluster Bomb Projectile / Grenade MG Projectile -- NOT Bomb/Smart/Laser/FuelAir which need
+  a target guid). Both spawn locally -> run on each machine for co-op.
+- AI: `Ai.Goal{ AIGuid, Goal="Attack", Target, Priority="HiPri", Force=true }`, `Ai.SetHaste(u,mult)`.
+- Blips: `Hud.Radar:AddObjective{sName,uGuid,...}` + `Pda.Map:AddBlip{...}`. **guid-anchored blips are machine-local
+  + netsync gated on `Net.IsServer()` (false in this co-op) -> each machine must blip its OWN local units**
+  (`clientBlipSweep` via `Pg.FastCollectHumans(x,y,z,r,"<Faction> && Human")`). Native `enemyblippable` is a
+  template-attached per-machine behavior.
+- Health: **NO `Object.SetMaxHealth`** (tanky = regen toward max). RNG: engine Lua is 32-bit float -> use the small
+  ZX LCG (`(rng*75)%65537`), NOT the big Park-Miller.
 - Persist: `Loader.SaveVar/LoadVar` (number/string/bool only - flatten to prefixed keys)
 - Co-op: `_G.ModNet` (Shared / Send+On, host-auth via `IsAuthority()`, v1.2 ready-gate)
