@@ -272,15 +272,29 @@ local BOSS_EVERY  = 5
 local SPAWN_BATCH = 6      -- enemies spawned per engine tick (paces big waves; avoids a frame spike)
 local MAX_ACTIVE  = 140    -- HARD cap on concurrent enemy AI (live test: ~200 ok, 600 CTDs). Over this we STAGGER:
                            -- hold spawns until kills free up room, so the wave total still arrives but never all at once.
-local BOSSES = {
-    { name = "THE BRUTE",      template = "Guerilla Boss",     hp = 4 },
-    { name = "THE WARDEN",     template = "Allied Boss",       hp = 4 },
-    { name = "SUMMONER",       template = "Chinese Boss",      hp = 3, add = true, addEvery = 3 },  -- spawns adds until dead
-    { name = "BLANCO",         template = "Blanco",            hp = 5 },
-    { name = "WARLORD",        template = "OC Boss",           hp = 4 },
-    { name = "UNION BOSS",     template = "VZ MinerUnionBoss", hp = 4 },
-    { name = "GENERAL SOLANO", template = "Solano",            hp = 6, add = true, addEvery = 4 },  -- the big one: tanky + summons
+-- Bosses are ROLLED each boss wave as a PREFIX (rank/title = a mechanic bundle) over a random BODY (the
+-- physical template) with a codename -- so bosses feel different across runs instead of a fixed script.
+-- "General" is the summoner. Themed on the game's military/merc world. Any prefix can ride any body.
+local BOSS_PREFIXES = {   -- title,   hp = effective-HP mult (via regen),  haste,  add/addEvery = summons troops
+    { title = "General",   hp = 5, haste = 1.15, add = true, addEvery = 4 },   -- summoner: keeps calling in troops
+    { title = "Colonel",   hp = 4, haste = 1.35 },                             -- quick, aggressive commander
+    { title = "Warlord",   hp = 7, haste = 1.00 },                             -- pure tank, slow and grindy
+    { title = "Commander", hp = 5, haste = 1.20, add = true, addEvery = 6 },   -- summons on a slower cadence
+    { title = "Butcher",   hp = 3, haste = 1.65 },                             -- rushdown: glassier but very fast
+    { title = "Marshal",   hp = 6, haste = 1.30, add = true, addEvery = 5 },   -- the elite: tanky, fast, and summons
 }
+local BOSS_BODIES = {   -- the template that physically shows up
+    "Guerilla Boss", "Allied Boss", "Chinese Boss", "OC Boss", "VZ MinerUnionBoss", "Blanco", "Solano",
+}
+local BOSS_CODENAMES = {   -- proper-noun flavor themed to the setting's factions
+    "Solano", "Blanco", "Reyes", "Vega", "Herrera", "Marquez", "Castillo", "Zhao", "Chen", "Hawke", "Voss", "Kessler",
+}
+local function rollBoss()   -- prefix (mechanic) x body (template) x codename (name) -> a fresh boss def
+    local pre = BOSS_PREFIXES[rndInt(#BOSS_PREFIXES)]
+    return { name = pre.title .. " " .. BOSS_CODENAMES[rndInt(#BOSS_CODENAMES)],
+             template = BOSS_BODIES[rndInt(#BOSS_BODIES)],
+             hp = pre.hp, haste = pre.haste, add = pre.add, addEvery = pre.addEvery }
+end
 
 -- ===== ARENAS (authored in MissionForge). spawn point = {x, y, z, radius}; radius tiers the unit type:
 -- <=5 infantry, <=15 vehicle, >15 heli. Enemies spawn from these points; the player defends the center.
@@ -804,7 +818,7 @@ local function nearBossPoint(run, bx, bz)
     return scored[rndInt(math.min(3, #scored))].p
 end
 local function spawnBoss(run)
-    local def = BOSSES[1 + (math.floor(run.wave / BOSS_EVERY) - 1) % #BOSSES]   -- cycle bosses each boss wave
+    local def = rollBoss()                                       -- prefix (mechanic) x body (template) x codename -> varies each boss wave/run
     local pts = run.spawnPts
     local x, y, z
     if pts and #pts > 0 then local p = pts[1]; x, y, z = p[1], p[2], p[3]
@@ -814,7 +828,7 @@ local function spawnBoss(run)
     safe(function() Object.SetHealth(u, Object.GetMaxHealth(u) or 999) end)      -- full health
     local _, _, _, hch = hostPose()
     if hch then safe(function() Ai.Goal({ AIGuid = u, Goal = "Attack", Target = hch, Priority = "HiPri", Force = true }) end) end
-    safe(function() Ai.SetHaste(u, 1.25) end)
+    safe(function() Ai.SetHaste(u, def.haste or 1.25) end)
     run.boss = { u = u, def = def, blip = addEnemyBlip(u, 900000 + run.wave), tick = 0 }
     local bmx = safe(Object.GetMaxHealth, u) or 0                                -- tanky via REGEN (no SetMaxHealth in this build)
     local bk = (def.hp or 3) * (run.mods and run.mods.mHp or 1)
@@ -833,10 +847,11 @@ local function spawnOne(run, hch, p, idx)                       -- p = a chosen 
         local ang = 2 * math.pi * ((idx or 1) / math.max(1, run.toSpawn)); local r = run.cfg.arenaRadius or 25
         x, y, z = center.x + r * math.cos(ang), center.y, center.z + r * math.sin(ang)
     end
-    local u = safe(Pg.Spawn, pickUnit(run.pool), x, y, z)
+    local tmpl = run.airborne or pickUnit(run.pool)              -- airborne wave -> paratroopers chuting in from altitude
+    local u = safe(Pg.Spawn, tmpl, x, run.airborne and (y + (run.airborneAlt or 45)) or y, z)
     if u then
         if hch then safe(function() Ai.Goal({ AIGuid = u, Goal = "Attack", Target = hch, Priority = "HiPri", Force = true }) end) end
-        safe(function() Ai.SetHaste(u, 1.6 * (run.mods and run.mods.mSpd or 1)) end)
+        safe(function() Ai.SetHaste(u, 1.6 * (run.mods and run.mods.mSpd or 1) * (run.waveHaste or 1)) end)
         local e = { u = u, blip = addEnemyBlip(u, run.wave * 10000 + (idx or #run.enemies + 1)), sx = x, sy = y, sz = z }
         applyHp(e, run.mods and run.mods.mHp)
         run.enemies[#run.enemies + 1] = e
@@ -968,6 +983,56 @@ do
         end
     end
 end
+-- ===== WAVE ARCHETYPES: each non-boss wave rolls a "flavor" that reshapes what spawns and is announced on the
+-- banner. Host-authoritative -- the co-op client just sees the resulting units (native replication + the client
+-- blip sweep) and the shared strikes (existing wd_strike channel). Gated by wave number + active factions;
+-- NORMAL is the common default. This is the scaffold for adding variety without touching the core spawn loop. =====
+local AIRBORNE_TROOP = { ALLIED = "Allied Paratrooper", CHINA = "Chinese Paratrooper" }   -- native chute troopers (ONLY these factions have them)
+local AIRBORNE_ALT, AIRBORNE_BARRAGE = 45, 6   -- drop altitude (chute down onto the safe authored point) + softening strikes first
+local function airborneTemplate(run)           -- the paratrooper template if an airdrop-capable faction is active, else nil
+    for _, f in ipairs(run.factions or {}) do if AIRBORNE_TROOP[f] then return AIRBORNE_TROOP[f] end end
+    return nil
+end
+local function barrageStrike(run)              -- a strike spread across the arena (vs. fireEnemyStrike, which tracks the player)
+    local pts, x, y, z = run.spawnPts
+    if pts and #pts > 0 then local p = pts[rndInt(#pts)]; x, y, z = p[1], p[2], p[3]
+    else local c = run.center; x, y, z = c.x, c.y, c.z end
+    x = x + (rnd() - 0.5) * 24; z = z + (rnd() - 0.5) * 24
+    warnStrike(x, y, z)                                          -- both machines run the shell/flash (client via wd_strike)
+    if ModNet.IsCoop() then ModNet.Send("wd_strike", { x, y, z }) end
+end
+local function startAirborne(run)              -- saturating barrage, then the paratroopers chute in (they spawn via the normal infantry budget)
+    for i = 1, AIRBORNE_BARRAGE do
+        if Event and Event.Create then Event.Create(Event.TimerRelative, { 0.35 * i }, function() if W.run == run and run.state == "active" then barrageStrike(run) end end) end
+    end
+    Loader.Printf("[WaveDef] AIRBORNE ASSAULT inbound (" .. tostring(run.airborne) .. ")")
+end
+local WAVE_ARCHETYPES = {
+    -- id, label (banner text; "" = a silent normal wave), weight, minWave, req(run) optional gate, apply(run) reshape
+    { id = "normal",   label = "",                weight = 100 },
+    { id = "blitz",    label = "BLITZ",           weight = 16, minWave = 2,
+      apply = function(run) run.toSpawn = math.max(6, math.floor(run.toSpawn * 0.6)); run.waveHaste = 1.7 end },   -- fewer but very fast
+    { id = "horde",    label = "HORDE",           weight = 12, minWave = 3,
+      apply = function(run) run.toSpawn = math.floor(run.toSpawn * 1.7); run.vehToSpawn, run.heliToSpawn = 0, 0 end },   -- swarm (cap + stagger pace it)
+    { id = "armor",    label = "ARMORED COLUMN",  weight = 12, minWave = 4, req = function(run) return run.arena ~= nil end,
+      apply = function(run) run.vehToSpawn = math.max(run.vehToSpawn, 4) + 2; run.toSpawn = math.max(6, math.floor(run.toSpawn * 0.55)) end },   -- vehicle push
+    { id = "siege",    label = "SIEGE",           weight = 10, minWave = 4,
+      apply = function(run) run.strikesLeft = math.max(run.strikesLeft or 0, 6); run.toSpawn = math.max(6, math.floor(run.toSpawn * 0.7)) end },   -- continuous shelling
+    { id = "airborne", label = "AIRBORNE ASSAULT", weight = 16, minWave = 3, req = function(run) return airborneTemplate(run) ~= nil end,
+      apply = function(run) run.airborne = airborneTemplate(run); run.airborneAlt = AIRBORNE_ALT
+                            run.vehToSpawn, run.heliToSpawn = 0, 0
+                            run.toSpawn = math.max(8, math.floor(run.toSpawn * 0.9)); run.preBarrage = true end },   -- barrage + paratrooper drop (Allied/China)
+}
+local function pickArchetype(run)              -- weighted roll among the eligible archetypes for this wave
+    local elig, tot = {}, 0
+    for _, a in ipairs(WAVE_ARCHETYPES) do
+        if run.wave >= (a.minWave or 0) and (not a.req or a.req(run)) then elig[#elig + 1] = a; tot = tot + a.weight end
+    end
+    if tot <= 0 then return nil end
+    local r = rnd() * tot
+    for _, a in ipairs(elig) do r = r - a.weight; if r <= 0 then return a end end
+    return elig[#elig]
+end
 local VEH_START, HELI_START = 3, 5   -- waves at which enemy vehicles / helis start appearing
 local function spawnWave(run)
     local cx, cy, cz = hostPose()
@@ -981,18 +1046,23 @@ local function spawnWave(run)
     run.enemies = {}
     run.toSpawn = math.floor(((cfg.baseCount or 12) + (run.wave - 1) * (cfg.perWave or 6)) * (run.mods and run.mods.mSize or 1))
     run.spawned = 0; run.waveKills = 0
+    run.airborne, run.airborneAlt, run.preBarrage, run.waveHaste = nil, nil, nil, nil   -- clear last wave's archetype flags
     local vs, hs = early(run, VEH_START), early(run, HELI_START)
     run.vehToSpawn  = (run.wave >= vs) and math.min(1 + math.floor((run.wave - vs) / 2), 8) or 0
     run.heliToSpawn = (run.wave >= hs) and math.min(1 + math.floor((run.wave - hs) / 3), 4) or 0
     run.vehSpawned, run.heliSpawned = 0, 0
-    run.total = run.toSpawn + run.vehToSpawn + run.heliToSpawn; run.left = run.total
     run.strikesLeft = strikeCount(run); run.strikeTick = 0
     run.boss = nil
     local bossEvery = (run.mods and run.mods.mEarly) and 1 or ((run.mods and run.mods.mBoss) and 3 or BOSS_EVERY)
     if run.wave % bossEvery == 0 then spawnBoss(run) end
+    local arch                                                    -- WAVE ARCHETYPE (non-boss waves): reshape the spawn + announce it
+    if not run.boss then arch = pickArchetype(run); if arch and arch.apply then safe(arch.apply, run) end end
+    run.total = run.toSpawn + run.vehToSpawn + run.heliToSpawn; run.left = run.total   -- AFTER the archetype mutates the counts
+    if run.preBarrage then startAirborne(run) end                -- airborne: softening strikes now, paratroopers chute in via the budget
+    if arch and arch.label ~= "" then toast(">> " .. arch.label) end   -- host-only wave banner
     -- (scripted reinforcement heli retired -- it floated/hovered; native reporting + adoptStrays now handle backup)
     run.state = "active"
-    Loader.Printf("[WaveDef] wave " .. run.wave .. ": " .. run.toSpawn .. " inf + " .. run.vehToSpawn .. " veh + " .. run.heliToSpawn .. " heli [" .. tostring(run.factionsLabel) .. "]" .. (run.boss and (" + BOSS " .. run.boss.def.name) or "") .. (run.strikesLeft > 0 and (" + " .. run.strikesLeft .. " strikes") or ""))
+    Loader.Printf("[WaveDef] wave " .. run.wave .. " [" .. (arch and arch.id or "normal") .. "]: " .. run.toSpawn .. " inf + " .. run.vehToSpawn .. " veh + " .. run.heliToSpawn .. " heli [" .. tostring(run.factionsLabel) .. "]" .. (run.boss and (" + BOSS " .. run.boss.def.name) or "") .. (run.strikesLeft > 0 and (" + " .. run.strikesLeft .. " strikes") or ""))
 end
 
 -- ===== end run: terminal state -> complete/fail the contract (native fanfare) -> clear HUD =====
