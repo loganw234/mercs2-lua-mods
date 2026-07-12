@@ -693,8 +693,23 @@ local function strikeImpact(x, y, z)                            -- BOTH machines
         toast("HIT BY AIRSTRIKE!")
     end
 end
-local function warnStrike(x, y, z)                             -- BOTH machines: a warning disc that FLASHES faster as impact nears
+-- the plane + the real falling shell. These run on EACH machine (host via fireEnemyStrike, client via the
+-- wd_strike handler -> warnStrike), because Airstrike.Flyby / SpawnOrdnance spawn LOCALLY (not auto-networked,
+-- like our other Pg.Spawns) -- so both players must run them or the co-op partner sees a flash with no bomb.
+-- Airstrike.Flyby takes a template NAME string (global "Support Vehicle (...)" planes resolve, unlike our
+-- roster templates via GetGuidByName). Shell = MasterCheatMenu's DropOrdnanceAt call shape (position-based).
+local FLYBY_PLANES = { "Support Vehicle (OV10)", "Support Vehicle (Tucano)" }   -- small light planes (the game's own ambient flyby craft)
+local function launchFlyby(x, y, z)
+    local ang = rnd() * 6.2832; local d = 260
+    local sx, sz = x + d * math.cos(ang), z + d * math.sin(ang)
+    safe(function() Airstrike.Flyby(FLYBY_PLANES[rndInt(#FLYBY_PLANES)], sx, sz, x, z, (y or 0) + 90, d / STRIKE_DELAY) end)
+end
+local function dropShell(x, y, z)                             -- a real shell falls from +STRIKE_FALL_H at 100/s and explodes on IMPACT via its fuze
+    safe(function() Airstrike.SpawnOrdnance(STRIKE_SHELL, x, (y or 0) + STRIKE_FALL_H, z, 0, -100, 0, "impact", 1) end)
+end
+local function warnStrike(x, y, z)                             -- BOTH machines: flash + the plane + the falling shell + the controlled hit
     toast("INCOMING AIRSTRIKE!")
+    launchFlyby(x, y, z); dropShell(x, y, z)                   -- spawn the plane + the actual bomb LOCALLY on this machine
     local anchor = safe(function() return Pg.Spawn("TinyGeometry", x, y, z) end)
     if not (anchor and Event and Event.Create) then strikeImpact(x, y, z); return end
     -- MissionForge's proven pattern: the disc doesn't animate, so we Remove + re-AddDisc each blink. The
@@ -735,28 +750,10 @@ local function strikeTargetPos(run)                            -- a spot within 
     local ang = rnd() * 6.2832; local rr = r * math.sqrt(rnd())
     return px + rr * math.cos(ang), py, pz + rr * math.sin(ang)
 end
--- a real plane streaks over the strike point (Airstrike.Flyby takes a template NAME string -- the global
--- "Support Vehicle (...)" planes resolve fine, unlike our roster templates via GetGuidByName). Host-only:
--- the plane is an engine object that networks to the co-op partner. Timed to pass over ~as the bomb lands.
-local FLYBY_PLANES = { "Support Vehicle (OV10)", "Support Vehicle (Tucano)" }   -- small light planes (the game's own ambient flyby craft); B2/AC130 saved for future "heavy" strikes
-local function launchFlyby(x, y, z)
-    local ang = rnd() * 6.2832; local d = 260
-    local sx, sz = x + d * math.cos(ang), z + d * math.sin(ang)
-    local plane = FLYBY_PLANES[rndInt(#FLYBY_PLANES)]
-    safe(function() Airstrike.Flyby(plane, sx, sz, x, z, (y or 0) + 90, d / STRIKE_DELAY) end)
-end
--- a REAL shell falls onto the target and explodes on IMPACT via its fuze (Airstrike.SpawnOrdnance, the exact
--- call shape from MasterCheatMenu's DropOrdnanceAt -- "Artillery Shell" is position-based, no target guid).
--- Spawned from +STRIKE_FALL_H falling at 100/s, so it lands ~STRIKE_DELAY later (about when the flash peaks).
-local function dropShell(x, y, z)
-    safe(function() Airstrike.SpawnOrdnance(STRIKE_SHELL, x, (y or 0) + STRIKE_FALL_H, z, 0, -100, 0, "impact", 1) end)
-end
-local function fireEnemyStrike(run)                            -- authority: call a strike near the player, replicate to co-op
+local function fireEnemyStrike(run)                            -- authority: pick the target near the player, run the strike, replicate to co-op
     local x, y, z = strikeTargetPos(run)
-    warnStrike(x, y, z)                                          -- host: flash + the controlled player hit
-    launchFlyby(x, y, z)                                         -- host: the plane streaks over (networks to the client)
-    dropShell(x, y, z)                                           -- host: the actual falling bomb (networks to the client)
-    if ModNet.IsCoop() then ModNet.Send("wd_strike", { x, y, z }) end   -- client: flash + the controlled hit
+    warnStrike(x, y, z)                                          -- host: flash + plane + falling shell + controlled hit
+    if ModNet.IsCoop() then ModNet.Send("wd_strike", { x, y, z }) end   -- client runs the SAME warnStrike (flash + plane + shell + hit)
     Loader.Printf("[WaveDef] enemy airstrike inbound")
 end
 
@@ -1392,11 +1389,56 @@ function W.stop()
 end
 
 -- ===== heartbeat (BOTH machines; gen-guarded so a reload doesn't stack) =====
+-- CLIENT-side enemy blips: the host's blips anchor to HOST guids that don't resolve on the client (and the
+-- Net.IsServer()-gated radar netsync doesn't reach us in this co-op). Native enemies blip because EACH
+-- machine blips its OWN local copy of the networked unit -- so the CLIENT sweeps for hostile humans near
+-- itself and blips them with ITS OWN guids. Host/SP already blip via addEnemyBlip; this runs on the client.
+W.cblips = W.cblips or {}
+local function clientClearBlips()
+    for _, nm in pairs(W.cblips) do
+        pcall(function() Hud.Radar:RemoveObjective({ sName = nm, bDontNetSync = true }) end)
+        pcall(function() Pda.Map:RemoveBlip({ sName = nm }) end)
+    end
+    W.cblips = {}
+end
+local function clientBlipSweep()
+    if ModNet.IsAuthority() then return end                     -- host/SP already blip locally in addEnemyBlip
+    if not S.state then if next(W.cblips) then clientClearBlips() end return end   -- run ended -> pull all
+    local ch = Player.GetLocalCharacter(); if not ch then return end
+    local px, py, pz = safe(Object.GetPosition, ch); if not px then return end
+    local seen = {}
+    for f in string.gmatch(S.factions or "", "[^+]+") do
+        local tag = COLLECT_TAG[f]
+        local list = tag and safe(function() return Pg.FastCollectHumans(px, py, pz, 130, tag .. " && Human") end)
+        if type(list) == "table" then
+            for _, u in ipairs(list) do
+                seen[u] = true
+                if not W.cblips[u] then
+                    local nm = "wd_cb" .. tostring(u)
+                    pcall(function() Hud.Radar:AddObjective({ sName = nm, uGuid = u, sTexture = "objective_action", nR = ENEMY_RGB[1], nG = ENEMY_RGB[2], nB = ENEMY_RGB[3], nWidth = 10.666667, nHeight = 10.666667, nSortOrder = 5, bDontNetSync = true }) end)
+                    pcall(function() Pda.Map:AddBlip({ sName = nm, uGuid = u, sTexture = "icon_yellow_mc", nSortOrder = 2 }) end)
+                    W.cblips[u] = nm
+                end
+            end
+        end
+    end
+    for u, nm in pairs(W.cblips) do                             -- drop blips for units no longer around
+        if not seen[u] then
+            pcall(function() Hud.Radar:RemoveObjective({ sName = nm, bDontNetSync = true }) end)
+            pcall(function() Pda.Map:RemoveBlip({ sName = nm }) end)
+            W.cblips[u] = nil
+        end
+    end
+end
 local function loop(gen)
     if W.gen ~= gen then return end
     if ModNet.IsAuthority() then pcall(engineTick) end
     pcall(pollDrops)                                             -- both machines: collect drops near the local player
     pcall(updateHud)
+    if not ModNet.IsAuthority() then                            -- client re-blips enemies near itself ~every 1s
+        W._cbN = (W._cbN or 0) + 1
+        if W._cbN % 2 == 0 then pcall(clientBlipSweep) end
+    end
     Event.Create(Event.TimerRelative, { TICK }, function() loop(gen) end)
 end
 W.gen = (W.gen or 0) + 1
