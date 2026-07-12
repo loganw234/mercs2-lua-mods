@@ -13,12 +13,16 @@ Deploy: `git pull` -> copy the `.lua` files into the game `scripts/OnLoad` + `sc
 - **Confirmed in-engine:** co-op connect (ModNet v1.2), base loop, drops + physical supply crates, mixed-faction
   waves, AI aggression, the contract on the F5 board (after the loadMods fix), killstreak, **support auto-equip**
   to the quick-menu, **RNG fixed** (ZX generator -- crates/units vary now, not all one type).
-- **Staged, re-test pending:** vehicle/heli waves, modifiers, isolated economy, regen bosses, glass-cannon,
-  placement mode, results card, boss HP bar, wave banner, support isolation, **unit cap** (staggered spawns),
-  **geometry-safe spawns**, **real airstrikes** (falling `Artillery Shell` + small-plane flyby + Sustained
-  Shelling / Target Acquisition modifiers + `mEarly` "all threats @ wave 1" test lever), **report-hook
-  reinforcements** (armed vehicle / gunship / air-support), and the **co-op fixes** (airstrike shell+plane on
-  BOTH machines, client-side enemy blips).
+- **2026-07-12 LIVE RE-TEST — batch confirmed:** **real airstrikes on BOTH machines** (client sees the falling
+  shell + small-plane flyby, player-tracking + escalating flash), **client-side enemy minimap blips**, **all
+  modifier levers** (incl. `mEarly`/`mShell`/`mTarget` -- so veh/heli/boss/economy all got exercised via
+  all-threats-@-wave-1), **unit cap + staggered spawns**, **death/medevac economy teardown**, **faction setup +
+  restore**.
+- **Staged, re-test STILL pending (only 2 left):** (1) **geometry-safe spawns** -- improved (jitter within the
+  authored point radius + per-point stagger) and mostly good, but **NOT 100%** yet (some units still land in
+  geometry); next: tighten jitter / validate the arena points / ground-snap or nudge-to-center on spawn. (2)
+  **report-hook reinforcements** (armed vehicle / gunship / air-support via the `MrxFactionManager.FinishedReporting`
+  hook) -- couldn't trigger the report beat in-test yet (needs a unit to actually report the player).
 - **DEAD ENDS (do NOT retry):** support auto-equip via `Pda/PdaInterface` (unreachable) -- SOLVED via
   `Hud.SupportMenu:AddItem`. Native heli/jet DELIVERIES (`MrxCopterDrop`, `Airstrike.Flyby` as a *unit* carrier)
   -- they resolve cargo via `Pg.GetGuidByName`, which can't see our roster templates in a custom contract; only
