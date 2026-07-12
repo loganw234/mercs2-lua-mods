@@ -792,6 +792,17 @@ local function regenPass(run)                                    -- heal tanky e
 end
 
 -- ===== spawn: paced batches from the arena's infantry points, weighted from the run's faction pool =====
+-- a geometry-safe AUTHORED point near a world position (for boss-summoned adds -- spawning them in a ring
+-- around the boss clipped walls when the boss stood near cover; authored points are known-safe). Picks
+-- randomly among the few closest so adds cluster near the boss but still spread over safe ground.
+local function nearBossPoint(run, bx, bz)
+    local pts = run.spawnPts
+    if not pts or #pts == 0 then return nil end
+    local scored = {}
+    for _, p in ipairs(pts) do local dx, dz = p[1] - bx, p[3] - bz; scored[#scored + 1] = { p = p, d = dx * dx + dz * dz } end
+    table.sort(scored, function(a, b) return a.d < b.d end)
+    return scored[rndInt(math.min(3, #scored))].p
+end
 local function spawnBoss(run)
     local def = BOSSES[1 + (math.floor(run.wave / BOSS_EVERY) - 1) % #BOSSES]   -- cycle bosses each boss wave
     local pts = run.spawnPts
@@ -814,8 +825,8 @@ end
 local function spawnOne(run, hch, p, idx)                       -- p = a chosen authored (geometry-safe) point; idx = spawn ordinal
     local x, y, z
     if p then
-        local r = math.min(p[4] or 3, 3)                          -- STAY INSIDE the authored point radius (placed to avoid geometry)
-        local ang = rnd() * 6.2832; local rr = r * math.sqrt(rnd())   -- uniform inside the safe disc: slight spacing, never past the point
+        local r = 0.75                                           -- TIGHT jitter: the point CENTER is the known-safe spot. A sub-metre
+        local ang = rnd() * 6.2832; local rr = r * math.sqrt(rnd())   -- offset just avoids exact overlap; AI shove each other apart.
         x, y, z = p[1] + rr * math.cos(ang), p[2], p[3] + rr * math.sin(ang)
     else
         local center = run.center
@@ -1055,7 +1066,10 @@ local function engineTick()
                 if def.add and run.boss.tick % (def.addEvery or 3) == 0 then           -- summoner: adds while it lives
                     local bx, by, bz = safe(Object.GetPosition, run.boss.u)
                     local _, _, _, hch3 = hostPose()
-                    if bx then
+                    local p = bx and nearBossPoint(run, bx, bz)                        -- adds spawn at a nearby AUTHORED point
+                    if p then                                                          -- (geometry-safe) -- Solano near a wall used
+                        spawnOne(run, hch3, p, 800000 + run.boss.tick)                 -- to clip his followers into it
+                    elseif bx then                                                     -- no arena points -> old ring-around-boss fallback
                         local ang = run.boss.tick * 2.399963
                         local ax, az = bx + 6 * math.cos(ang), bz + 6 * math.sin(ang)
                         local au = safe(Pg.Spawn, pickUnit(run.pool), ax, by, az)
