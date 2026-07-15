@@ -10,7 +10,7 @@
       "name": "Lua Bridge",
       "type": "asi",
       "description": "Live Lua REPL, script loader (OnBoot / OnLoad / OnKey), full keyboard/focus API, math stdlib parity, persistent SaveVar/LoadVar, and a self-healing watchdog. The runtime layer every [LUA]-prefixed mod in this catalog depends on. Ships as one .asi plus companion config + Python REPL client; drop them into <game>/scripts/.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "assets": ["lua_bridge.asi", "lua_bridge.ini", "lua_loader.ini", "lua_console.py"]
     },
     {
